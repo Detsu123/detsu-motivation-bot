@@ -41,7 +41,11 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: gemini-3.6-flash
+<<<<<<< HEAD
           USER_NAME: Дээгий
+=======
+          USER_NAME: Хүслэн
+>>>>>>> d325ecebad2d8c4886e87d13beb7d22a7b19c574
           USER_CONTEXT: >-
             Монголд ажиллаж, суралцдаг оюутан. Программчлал, хиймэл оюун,
             сүлжээний инженерчлэл, англи хэл болон хувийн хөгжилдөө ахихыг
