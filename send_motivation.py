@@ -6,6 +6,8 @@ import os
 import random
 import re
 import sys
+import uuid
+from difflib import SequenceMatcher
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -14,7 +16,6 @@ from zoneinfo import ZoneInfo
 
 import requests
 from google import genai
-from google.genai import types
 
 
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"].strip()
@@ -22,10 +23,7 @@ TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"].strip()
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"].strip()
 
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
-<<<<<<< HEAD
 USER_NAME = os.getenv("USER_NAME", "Дээгий").strip()
-=======
->>>>>>> d325ecebad2d8c4886e87d13beb7d22a7b19c574
 USER_CONTEXT = os.getenv(
     "USER_CONTEXT",
     (
@@ -228,29 +226,56 @@ def clean_text(text: str) -> str:
     return (text[:3897].rstrip() + "...") if len(text) > 3900 else text
 
 
-def build_prompt(now: datetime, hour: int, history: list[str]) -> str:
+
+def build_prompt(
+    now: datetime,
+    hour: int,
+    history: list[str],
+    attempt: int,
+    request_nonce: str,
+) -> str:
     profile = TIME_PROFILES[hour]
     previous = "Өмнөх мессеж байхгүй."
     if history:
         previous = "\n\n--- ӨМНӨХ МЕССЕЖ ---\n\n".join(history)
+
     weekdays = ["Даваа", "Мягмар", "Лхагва", "Пүрэв", "Баасан", "Бямба", "Ням"]
+
     styles = [
-<<<<<<< HEAD
         "дотно найз нь яг хэрэгтэй үед нь мессеж бичиж буй мэт",
         "Дээгийг сайн мэддэг, тайван сонсож чаддаг хүн ярьж буй мэт",
         "хиймэл сүржин үггүй, бодит амьдралыг нь ойлгосон дулаахан чат мэт",
         "бага зэрэг хөгжилтэй мөртлөө сэтгэлд хүрэх найзын мессеж мэт",
         "хэт зааварласан биш, мөрөн дээр нь зөөлөн алгадаад зоригжуулж буй мэт",
         "урт лекц биш, чин сэтгэлээсээ санаа тавьсан хүн бичсэн мэт",
-=======
-        "дотно найз яг зөв үгээ олж хэлж буй мэт",
-        "ирээдүйн илүү тайван өөрөөс нь ирсэн богино захидал мэт",
-        "бодит байдлыг үгүйсгэхгүй мөртлөө дотроос хүч өгсөн мэт",
-        "хэт сүржигнэлгүй, ухаалаг дасгалжуулагч ярьж буй мэт",
->>>>>>> d325ecebad2d8c4886e87d13beb7d22a7b19c574
     ]
+
+    openings = [
+        "өнөөдрийн яг энэ мөчийг анзаарсан мэт эхэл",
+        "өмнөх мессежүүдэд байгаагүй шинэ дүр зураг эсвэл ажиглалтаар эхэл",
+        "маш энгийн, хүний амьд ярианы нэг өгүүлбэрээр эхэл",
+        "зөөлөн хошигнолтой боловч эвгүй биш байдлаар эхэл",
+        "тухайн цагийн ядрал эсвэл бодлыг нэрлэж эхэл",
+        "гэнэт ирсэн дотны мессеж шиг шууд эхэл",
+    ]
+
+    emotional_angles = [
+        "өөрийгөө голохоо багасгах",
+        "гацсан газраасаа жижиг хөдөлгөөн хийх",
+        "хийсэн ахицаа анзаарах",
+        "толгой доторх дарамтыг багасгах",
+        "эрч хүчгүй үед өөртөө зөөлөн хандах",
+        "төгс хийх хүсэлд гацахгүй эхлэх",
+        "бусадтай харьцуулах бодлыг сулруулах",
+        "өнөөдрийн үлдсэн цагийг шинээр эхлүүлэх",
+    ]
+
     return f"""
-Одоогийн цаг: {now:%Y-%m-%d %H:%M}
+Чи Дээгийг сайн мэддэг дотны, дулаахан найз шиг Монгол хэлээр бич.
+Хариулт AI-ийн текст, илтгэл, motivational poster шиг биш,
+яг Telegram-аар чин сэтгэлээсээ бичсэн бодит хүний мессеж мэт сонсогдох ёстой.
+
+Одоогийн цаг: {now:%Y-%m-%d %H:%M:%S}
 Гараг: {weekdays[now.weekday()]}
 Хуваарийн цаг: {hour:02d}:00
 Хэрэглэгч: {USER_NAME or "нэр дурдахгүй"}
@@ -261,44 +286,98 @@ def build_prompt(now: datetime, hour: int, history: list[str]) -> str:
 Уншсаны дараах нөлөө: {profile.desired_effect}
 Эцсийн жижиг алхам: {profile.action_style}
 Зайлсхийх зүйл: {profile.avoid}
-Өнгө аяс: {random.choice(styles)}
 
-Монгол хэлээр яг одоо ирэх ёстой байсан мэт шинэлэг урмын мессеж бич.
+Энэ удаагийн бүтээлч чиглэл:
+- Өнгө аяс: {random.choice(styles)}
+- Эхлэл: {random.choice(openings)}
+- Гол сэтгэлзүйн өнцөг: {random.choice(emotional_angles)}
+- Давтагдашгүй request ID: {request_nonce}
+- Дахин зохиох оролдлого: {attempt}
 
 Шаардлага:
 - {MIN_MESSAGE_CHARS}-{MAX_MESSAGE_CHARS} орчим тэмдэгт, 4-6 богино догол мөр.
-- Эхэнд тухайн цагийн бодит мэдрэмжийг онож хэл.
+- Эхний 1-2 өгүүлбэрээр тухайн цагийн бодит мэдрэмжийг онож хэл.
+- Дээгийд дотны хүн нь бичиж байгаа мэт дулаан, энгийн, чин сэтгэлтэй бай.
+- Хэт төгс найруулга, номын хэллэг, AI-ийн хэвшмэл өгүүлбэр бүү ашигла.
 - Тайвшруулалт, бодит эргэцүүлэл, өөрийгөө дайчлах түлхэц гурвыг тэнцвэржүүл.
 - Гунигийг үгүйсгэхгүй, оношлохгүй, хуурамч амлалт өгөхгүй.
-- Хэвшмэл уриа, өмнөх мессежийн эхлэл, санааны дараалал, төгсгөлийг давтахгүй.
-- Нэрийг хамгийн ихдээ нэг удаа хэрэглэ. Emoji 0-2 ширхэг.
-- Эцэст нь яг одоо хийх нэг жижиг, тодорхой алхам өг.
-- Зөвхөн Telegram-д илгээх бэлэн мессеж гарга. Тайлбар, code fence бүү гарга.
+- Өмнөх мессежийн өгүүлбэр, зүйрлэл, эхлэл, санааны дараалал,
+  emoji-ийн дараалал болон төгсгөлийг хуулбарлахгүй.
+- Өмнөх мессежтэй зөвхөн хэдэн үг солиод адил бүтэц гаргахыг хориглоно.
+- Нэрийг хамгийн ихдээ нэг удаа хэрэглэ.
+- 2-4 emoji-г нэг дор бөөгнөрүүлэхгүй, байгалийн байдлаар тарааж хэрэглэ.
+- Эцэст нь яг одоо хийх нэг жижиг, дарамтгүй, тодорхой алхам өг.
+- Зөвхөн Telegram-д илгээх бэлэн мессеж гарга.
+- Тайлбар, сонголт, жагсаалтын дугаар, markdown code fence бүү гарга.
 
 Сүүлийн мессежүүд:
 {previous}
 """.strip()
 
 
+def similarity_ratio(first: str, second: str) -> float:
+    return SequenceMatcher(
+        None,
+        first.casefold().strip(),
+        second.casefold().strip(),
+    ).ratio()
+
+
+def is_too_similar(message: str, history: list[str]) -> bool:
+    if not history:
+        return False
+
+    # Сүүлийн мессежүүдийн аль нэгтэй 62%-иас дээш төстэй бол дахин зохиолгоно.
+    return any(
+        similarity_ratio(message, old_message) >= 0.62
+        for old_message in history[-HISTORY_LIMIT:]
+    )
+
+
 def generate_message(now: datetime, hour: int, state: dict[str, Any]) -> str:
     client = genai.Client(api_key=GEMINI_API_KEY)
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=build_prompt(now, hour, state["history"]),
-        config=types.GenerateContentConfig(
-            max_output_tokens=1100,
-            system_instruction=(
-                "Чи Монгол хэлээр хүний бичсэн мэт байгалийн, сэтгэлд хүрсэн, "
-                "цагийн нөхцөлд нарийн таарсан урмын захидал бичдэг туслах. "
-                "Гунигийг үгүйсгэхгүй, хүнийг буруутгахгүй, дараагийн бодит "
-                "жижиг алхам руу нь зөөлөн хөтөл."
-            ),
-        ),
-    )
-    message = clean_text(response.text or "")
-    if len(message) < 300:
-        raise ValueError("Gemini хэт богино эсвэл хоосон хариу өглөө.")
-    return message
+    request_nonce = str(uuid.uuid4())
+
+    last_message = ""
+    for attempt in range(1, 4):
+        prompt = build_prompt(
+            now=now,
+            hour=hour,
+            history=state["history"],
+            attempt=attempt,
+            request_nonce=request_nonce,
+        )
+
+        # Gemini 3.6 Flash нь шинэ Interactions API-аар дуудагдана.
+        interaction = client.interactions.create(
+            model=GEMINI_MODEL,
+            input=prompt,
+        )
+
+        message = clean_text(interaction.output_text or "")
+        last_message = message
+
+        if len(message) < 300:
+            logger.warning(
+                "Gemini хэт богино хариу өглөө. attempt=%s",
+                attempt,
+            )
+            continue
+
+        if is_too_similar(message, state["history"]):
+            logger.warning(
+                "Gemini өмнөх зурвастай хэт төстэй байна. Дахин зохиолгож байна. "
+                "attempt=%s",
+                attempt,
+            )
+            continue
+
+        return message
+
+    if len(last_message) >= 300:
+        return last_message
+
+    raise ValueError("Gemini 3 оролдлогын дараа хүчинтэй шинэ мессеж өгсөнгүй.")
 
 
 def send_to_telegram(message: str) -> None:
@@ -335,7 +414,18 @@ def main() -> int:
         logger.info("Gemini мессеж үүсгэлээ. model=%s hour=%s", GEMINI_MODEL, hour)
     except Exception:
         logger.exception("Gemini алдаа өглөө. Нөөц мессеж ашиглана.")
-        message = FALLBACK_MESSAGES[hour].format(name=USER_NAME or "найз минь")
+        message = (
+            FALLBACK_MESSAGES[hour].format(name=USER_NAME or "найз минь")
+            + "\n\n"
+            + random.choice(
+                [
+                    "Өнөөдрийн энэ мөч өмнөхөөсөө өөр. Одоо өөртөө багахан зай гаргаарай 🌿",
+                    "Яг одоо бүхнийг засах хэрэггүй ээ. Нэг жижиг алхам л хангалттай ✨",
+                    "Өөрийгөө яаруулахын оронд түр амьсгаа аваад дараагийн ганц зүйлээ сонгоё 🤍",
+                    "Өнөөдрийн Дээгийд хэрэгтэй зүйл нь төгс байдал биш, багахан хөдөлгөөн шүү 🌱",
+                ]
+            )
+        )
 
     send_to_telegram(message)
     state["history"].append(message)

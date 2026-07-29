@@ -198,3 +198,26 @@ Telegram руу амжилттай илгээлээ
 - Яг дотны хүн Telegram-аар бичсэн мэт богино, амьд хэмнэлтэй байна.
 - Тухайн цагийн мэдрэмжид таарсан 2–4 emoji хэрэглэнэ.
 - Гунигийг үгүйсгэхгүй, харин ойлгож, дарамтгүй жижиг алхам санал болгоно.
+
+
+## Gemini 3.6 API засвар
+
+Энэ хувилбар `gemini-3.6-flash` загварыг хуучин `models.generate_content`
+дуудлагаар биш, Google-ийн шинэ Interactions API-аар ашиглана:
+
+```python
+interaction = client.interactions.create(
+    model="gemini-3.6-flash",
+    input=prompt,
+)
+```
+
+Мөн:
+
+- ажиллуулах бүрт давтагдашгүй request ID үүсгэнэ;
+- сүүлийн мессежүүдтэй 62%-иас дээш төстэй бол 3 хүртэл удаа дахин зохиолгуулна;
+- GitHub-ийн Re-run jobs ч хамгийн сүүлийн `main` branch-ийн кодыг checkout хийнэ;
+- Gemini ажиллахгүй үед fallback-ийн төгсгөлийг санамсаргүй өөрчилнө.
+
+Код шинэчилсний дараа хуучин run дээр `Re-run jobs` дарахын оронд эхлээд
+`Actions → Detsu Motivation Bot → Run workflow` ашиглан шинэ commit-ийг турших нь зөв.
