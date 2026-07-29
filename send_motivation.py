@@ -25,7 +25,6 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
 <<<<<<< HEAD
 USER_NAME = os.getenv("USER_NAME", "Дээгий").strip()
 =======
-USER_NAME = os.getenv("USER_NAME", "Хүслэн").strip()
 >>>>>>> d325ecebad2d8c4886e87d13beb7d22a7b19c574
 USER_CONTEXT = os.getenv(
     "USER_CONTEXT",
